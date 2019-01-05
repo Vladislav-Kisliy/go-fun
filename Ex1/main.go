@@ -13,8 +13,9 @@ import (
 
 const (
 	separator     = string(os.PathSeparator)
-	lastElement   = "└"
-	middleElement = "├"
+	lastElement   = "└───"
+	middleElement = "├───"
+	verticalLine  = "│\t"
 )
 
 func main() {
@@ -39,8 +40,8 @@ func dirTree(out io.Writer, root string, printFiles bool) error {
 		log.Fatal(err)
 		return err
 	}
-	fmt.Println("out ", fileRoot)
-	fmt.Println("out nodes", fileRoot.nodes)
+	fmt.Println("out =", fileRoot)
+	fmt.Println("out nodes =", fileRoot.nodes)
 
 	// var files []string
 	// for _, file := range fileInfos {
@@ -104,66 +105,64 @@ func transformPath(root string, path string) []string {
 		result = strings.Split(clearLine, separator)
 	}
 
-	// if lenParts > 0 {
-	// 	result = strings.Replace(path, root+separator, "", 1)
-	// 	// strings.LastIndex(path, separator)
-	// 	// nameIndex := strings.LastIndex(path, separator) + 1
-	// 	// fmt.Println("index =", nameIndex)
-	// 	// switch lenParts {
-	// 	// case 2:
-	// 	// 	result = strings.Replace(path, root+separator, "", 1)
-	// 	// case 3:
-	// 	// 	result = path[nameIndex:]
-	// 	// case 4:
-	// 	// 	result = path[nameIndex:]
-	// 	// }
-	// }
-
 	return result
 }
 
-func insertNode(rootNode *FileNode, targetNode FileNode, path []string) {
-	if rootNode.fileInfo.isDir {
-		pathLen := len(path)
+func insertNode(rootNode *FileNode, targetNode FileNode, path []string) bool {
+	pathLen := len(path)
+	fmt.Println("path =", path)
+	if rootNode.fileInfo.isDir && pathLen > 0 && rootNode.Filepath == path[0] {
+
 		switch pathLen {
 		case 1:
 			fmt.Println("Target 1", path)
-			if rootNode.Filepath == path[0] {
-				rootNode.nodes = append(rootNode.nodes, targetNode)
-			}
+			rootNode.nodes = append(rootNode.nodes, targetNode)
+
 		case 2:
 			fmt.Println("Target 2", path)
-			if rootNode.Filepath == path[0] {
-				fmt.Println("Target 2 add", targetNode)
-				rootNode.nodes = append(rootNode.nodes, targetNode)
-				// fileRoot.nodes = append(fileRoot.nodes, fileNode)
-				fmt.Println("Target 2 nodes after", rootNode.nodes)
-			}
-			// for _, childNode := range rootNode.nodes {
-			// 	if childNode.Filepath == path[0] {
-			// 		childNode.nodes = append(childNode.nodes, targetNode)
-			// 	}
-			// }
+
+			fmt.Println("Target 2 add", targetNode)
+			rootNode.nodes = append(rootNode.nodes, targetNode)
+			// fileRoot.nodes = append(fileRoot.nodes, fileNode)
+			fmt.Println("Target 2 nodes after", rootNode.nodes)
+			return true
+
 		default:
 			fmt.Println("Target >2", path)
-		}
-	}
-}
-
-func genLine(fileNode FileNode, position int, firstSymbol string) string {
-	if len(fileNode.nodes) > 1 {
-		for i := 0; i < len(fileNode.nodes)-2; i++ {
-			if fileNode.nodes[i].fileInfo.isDir && len(fileNode.nodes[i].nodes) > 0 {
-				genLine(fileNode.nodes[i], position+1, middleElement)
+			for i := 0; i < len(rootNode.nodes); i++ {
+				if insertNode(&rootNode.nodes[i], targetNode, path[1:]) {
+					return true
+				}
 			}
 		}
 	}
+	return false
+}
+
+func genLine(parentNode FileNode, position int, firstSymbol string) string {
+	nodesAmount := len(parentNode.nodes)
+	var indent string
 	if firstSymbol == lastElement {
-		return "last" + firstSymbol + fileNode.Filepath
+		indent = strings.Repeat("\t", position+1)
 	} else if firstSymbol == middleElement {
-		return firstSymbol + fileNode.Filepath
+		indent = verticalLine + strings.Repeat("\t", position)
+
 	}
-	return ""
+
+	var result string
+	if nodesAmount > 0 {
+		for i := 0; i < nodesAmount; i++ {
+			currentElement := middleElement
+			if i == (nodesAmount - 1) {
+				currentElement = lastElement
+			}
+			result = result + "\n" + indent + genLine(parentNode.nodes[i], position+1, currentElement)
+		}
+	}
+
+	result = firstSymbol + parentNode.Filepath + result
+
+	return result
 }
 
 type FileInfo struct {
@@ -177,11 +176,18 @@ type FileNode struct {
 	nodes    []FileNode
 }
 
-// func (fileNode FileNode) String() string {
-// 	var result string
-// 	for _, innerNode := range fileNode.nodes {
-// 		result = result + genLine(innerNode, 1, middleElement) + "\n"
-// 	}
-// 	return result
-// 	// return "├───" + fileNode.Filepath + "nodes []"
-// }
+func (fileNode FileNode) String() string {
+	result := "\n"
+	nodesAmount := len(fileNode.nodes)
+	if nodesAmount > 0 {
+		for i := 0; i < nodesAmount; i++ {
+			currentElement := middleElement
+			if i == (nodesAmount - 1) {
+				currentElement = lastElement
+			}
+			result = result + genLine(fileNode.nodes[i], 0, currentElement) + "\n"
+		}
+	}
+
+	return result
+}
