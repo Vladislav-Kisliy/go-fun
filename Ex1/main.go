@@ -6,8 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-
-	// "strconv"
+	"strconv"
 	"strings"
 )
 
@@ -20,12 +19,11 @@ const (
 
 func main() {
 	out := os.Stdout
-	// if !(len(os.Args) == 2 || len(os.Args) == 3) {
-	// 	panic("usage go run main.go . [-f]")
-	// }
-	// path := os.Args[1]
-	// path := "/home/vlad/work/projects/school/go/course/hw1_tree"
-	path := "testdata"
+	if !(len(os.Args) == 2 || len(os.Args) == 3) {
+		panic("usage go run main.go . [-f]")
+	}
+	path := os.Args[1]
+	// path := "testdata"
 	printFiles := len(os.Args) == 3 && os.Args[2] == "-f"
 	// printFiles := true
 	err := dirTree(out, path, printFiles)
@@ -40,16 +38,12 @@ func dirTree(out io.Writer, root string, printFiles bool) error {
 		log.Fatal(err)
 		return err
 	}
-	fmt.Println("out =", fileRoot)
-	fmt.Println("out nodes =", fileRoot.nodes)
+	// fmt.Println("out =", fileRoot)
+	// fmt.Println("out nodes =", fileRoot.nodes)
 
-	// var files []string
-	// for _, file := range fileInfos {
-	// 	// files = append(files, file.Name())
-	// 	fmt.Fprintln(out, file)
-	// }
+	fmt.Fprint(out, fileRoot)
 
-	return nil
+	return err
 }
 
 func readFolder(root string, printFiles bool) (FileNode, error) {
@@ -60,7 +54,6 @@ func readFolder(root string, printFiles bool) (FileNode, error) {
 			filepath := transformPath(root, path)
 			lastIndex := len(filepath) - 1
 			if lastIndex >= 0 {
-				fmt.Println("name will be " + filepath[lastIndex])
 				fileNode := FileNode{
 					Filepath: filepath[lastIndex],
 				}
@@ -68,23 +61,19 @@ func readFolder(root string, printFiles bool) (FileNode, error) {
 				if info.IsDir() {
 					fileInfo.isDir = true
 					shouldAdd = true
-					// fileInfos = append(fileInfos, transformPath(root, path))
 				} else if printFiles {
 					fileInfo.Size = info.Size()
 					shouldAdd = true
-					// fileInfo = append(fileInfo, transformPath(root, path)+" ("+string(info.Size())+")")
-					// if info.Size() == 0 {
-					// 	fileInfos = append(fileInfos, transformPath(root, path)+" (empty)")
-					// } else {
-					// 	fileInfos = append(fileInfos, transformPath(root, path)+" ("+strconv.FormatInt(info.Size(), 10)+"b)")
-					// }
+					if info.Size() == 0 {
+						fileNode.Filepath = fileNode.Filepath + " (empty)"
+					} else {
+						fileNode.Filepath = fileNode.Filepath + " (" + strconv.FormatInt(info.Size(), 10) + "b)"
+					}
 				}
 				if shouldAdd {
 					fileNode.fileInfo = fileInfo
 					insertNode(&fileRoot, fileNode, filepath)
-					// fileRoot.nodes = append(fileRoot.nodes, fileNode)
 					shouldAdd = false
-					fmt.Println("fileNode =", fileNode)
 				}
 			}
 
@@ -97,11 +86,8 @@ func readFolder(root string, printFiles bool) (FileNode, error) {
 
 func transformPath(root string, path string) []string {
 	var result []string
-	fmt.Println("path =", path)
 	if indexRoot := strings.Index(path, root); indexRoot > -1 {
 		clearLine := path[indexRoot:]
-		fmt.Println("clear data ", clearLine)
-		// clearLine := strings.Replace(path, root+separator, "", 1)
 		result = strings.Split(clearLine, separator)
 	}
 
@@ -110,25 +96,17 @@ func transformPath(root string, path string) []string {
 
 func insertNode(rootNode *FileNode, targetNode FileNode, path []string) bool {
 	pathLen := len(path)
-	fmt.Println("path =", path)
+	// fmt.Println("path =", path)
 	if rootNode.fileInfo.isDir && pathLen > 0 && rootNode.Filepath == path[0] {
-
 		switch pathLen {
 		case 1:
-			fmt.Println("Target 1", path)
 			rootNode.nodes = append(rootNode.nodes, targetNode)
 
 		case 2:
-			fmt.Println("Target 2", path)
-
-			fmt.Println("Target 2 add", targetNode)
 			rootNode.nodes = append(rootNode.nodes, targetNode)
-			// fileRoot.nodes = append(fileRoot.nodes, fileNode)
-			fmt.Println("Target 2 nodes after", rootNode.nodes)
 			return true
 
 		default:
-			fmt.Println("Target >2", path)
 			for i := 0; i < len(rootNode.nodes); i++ {
 				if insertNode(&rootNode.nodes[i], targetNode, path[1:]) {
 					return true
@@ -139,14 +117,18 @@ func insertNode(rootNode *FileNode, targetNode FileNode, path []string) bool {
 	return false
 }
 
-func genLine(parentNode FileNode, position int, firstSymbol string) string {
+func genLine(parentNode FileNode, position int, firstSymbol string, isLastElement bool) string {
 	nodesAmount := len(parentNode.nodes)
 	var indent string
 	if firstSymbol == lastElement {
-		indent = strings.Repeat("\t", position+1)
-	} else if firstSymbol == middleElement {
-		indent = verticalLine + strings.Repeat("\t", position)
+		if isLastElement {
+			indent = strings.Repeat("\t", position+1)
+		} else {
+			indent = strings.Repeat(verticalLine, position) + "\t"
+		}
 
+	} else if firstSymbol == middleElement {
+		indent = strings.Repeat(verticalLine, position+1)
 	}
 
 	var result string
@@ -156,7 +138,7 @@ func genLine(parentNode FileNode, position int, firstSymbol string) string {
 			if i == (nodesAmount - 1) {
 				currentElement = lastElement
 			}
-			result = result + "\n" + indent + genLine(parentNode.nodes[i], position+1, currentElement)
+			result = result + "\n" + indent + genLine(parentNode.nodes[i], position+1, currentElement, isLastElement)
 		}
 	}
 
@@ -177,16 +159,13 @@ type FileNode struct {
 }
 
 func (fileNode FileNode) String() string {
-	result := "\n"
+	result := ""
 	nodesAmount := len(fileNode.nodes)
 	if nodesAmount > 0 {
-		for i := 0; i < nodesAmount; i++ {
-			currentElement := middleElement
-			if i == (nodesAmount - 1) {
-				currentElement = lastElement
-			}
-			result = result + genLine(fileNode.nodes[i], 0, currentElement) + "\n"
+		for i := 0; i < nodesAmount-1; i++ {
+			result = result + genLine(fileNode.nodes[i], 0, middleElement, false) + "\n"
 		}
+		result = result + genLine(fileNode.nodes[nodesAmount-1], 0, lastElement, true) + "\n"
 	}
 
 	return result
