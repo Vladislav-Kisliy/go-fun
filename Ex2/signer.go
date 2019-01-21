@@ -21,7 +21,7 @@ func main() {
 	cancelCh := make(chan struct{})
 
 	// inputData := []int{0, 1, 1, 2, 3, 5, 8}
-	inputData := []int{0, 1}
+	inputData := []int{0, 1, 1, 2}
 	in := make(chan interface{}, 2)
 	out := make(chan interface{}, 2)
 	out2 := make(chan interface{}, 2)
@@ -78,49 +78,57 @@ func SingleHash(in chan interface{}, out chan interface{}) {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 
+	temp := make(chan string)
 	for data := range in {
-		stringData := fmt.Sprintf("%v", data)
 
+		stringData := fmt.Sprintf("%v", data)
 		md5 := DataSignerMd5(stringData)
 		wg.Add(1)
-		go func(stringData string, md5 string) {
-			defer wg.Done()
-			log.Print("SingleHash: start work with ", stringData)
-			left := <-genCrc32(stringData)
-			// runtime.Gosched()
-			right := DataSignerCrc32(md5)
-			out <- left + "~" + right
-		}(stringData, md5)
+		log.Print("SingleHash: create new goroutine ", stringData)
+		go getSingleHash(stringData, md5, temp, wg)
+
+	}
+	go func(wg *sync.WaitGroup, temp chan string) {
+		wg.Wait()
+		close(temp)
+	}(wg, temp)
+	for hash := range temp {
+		out <- hash
 	}
 }
 
 func MultiHash(in chan interface{}, out chan interface{}) {
-	// wg := &sync.WaitGroup{}
-	// infoLog := log.New(io.Writer,
-	// 	"INFO: ",
-	// 	log.Ldate|log.Ltime|log.Lshortfile)
+	wg := &sync.WaitGroup{}
+	resultCh := make(chan string)
+
 	for data := range in {
-		temp := make(chan string)
+		wg.Add(1)
 		wgTH := &sync.WaitGroup{}
 		inputCh := make(chan multiHashElement)
 		inputLine := data.(string)
-		// fmt.Println("MultiHash: got line =", inputLine)
-		// infoLog.Println("MultiHash: got line =", inputLine)
+
 		log.Print("MultiHash: got line =", inputLine)
 
 		wgTH.Add(TH_AMOUNT)
 		for i := 0; i < TH_AMOUNT; i++ {
 			go genMultiHash(i, inputLine, inputCh, wgTH)
 		}
+		go sortMultiHash(inputCh, resultCh, wg)
 		go func(wg *sync.WaitGroup, ch chan multiHashElement) {
 			defer close(ch)
 			wg.Wait()
 		}(wgTH, inputCh)
-		go sortMultiHash(inputCh, temp)
-		for hash := range temp {
-			out <- hash
-		}
 	}
+	log.Print("MultiHash: out of loop")
+	go func(wgOut *sync.WaitGroup, c chan string) {
+		defer close(c)
+		wgOut.Wait()
+	}(wg, resultCh)
+
+	for hash := range resultCh {
+		out <- hash
+	}
+
 }
 
 func CombineResults(in, out chan interface{}) {
@@ -128,17 +136,24 @@ func CombineResults(in, out chan interface{}) {
 	var result string
 
 	for line := range in {
-		fmt.Println("CombineResults: get from input ", line)
 		lines = append(lines, (line).(string))
 	}
 
 	sort.Strings(lines)
 	result = strings.Join(lines, "_")
-	fmt.Println("CombineResults: send to output ", result)
+	log.Println("CombineResults: send to output ", result)
 
 	out <- result
 }
 
+func getSingleHash(stringData string, md5 string, out chan string, wg *sync.WaitGroup) {
+	defer wg.Done()
+	log.Print("SingleHash: start work with ", stringData)
+	leftCh := genCrc32(stringData)
+	right := DataSignerCrc32(md5)
+	left := <-leftCh
+	out <- left + "~" + right
+}
 func genCrc32(data string) chan string {
 	result := make(chan string, 1)
 	go func(out chan<- string) {
@@ -153,12 +168,12 @@ func genMultiHash(i int, inputLine interface{}, resultCh chan multiHashElement, 
 	resultCh <- multiHashElement{id: i, hash: DataSignerCrc32(fmt.Sprintf("%v%v", i, inputLine))}
 }
 
-func sortMultiHash(hashElements chan multiHashElement, out chan string) {
+func sortMultiHash(hashElements chan multiHashElement, out chan string, wg *sync.WaitGroup) {
+	defer wg.Done()
 	result := map[int]string{}
 	var data []int
-
+	log.Print("sortMultiHash: start")
 	for hash := range hashElements {
-		fmt.Println("sortMultiHash: ", hash)
 		result[hash.id] = hash.hash
 		data = append(data, hash.id)
 	}
@@ -168,7 +183,6 @@ func sortMultiHash(hashElements chan multiHashElement, out chan string) {
 	for i := range data {
 		results = append(results, result[i])
 	}
-	fmt.Println("sortMultiHash: result ", result)
+	log.Println("sortMultiHash: result ", result)
 	out <- strings.Join(results, "")
-	close(out)
 }
