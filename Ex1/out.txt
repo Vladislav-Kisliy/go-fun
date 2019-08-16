@@ -1,0 +1,73 @@
+=== RUN   TestTreeFull
+--- FAIL: TestTreeFull (0.00s)
+    main_test.go:47: test for OK Failed - results not match
+        Got:
+        ├───dockerfile (75b)
+        ├───hw1.md (4621b)
+        ├───main.go (3633b)
+        ├───main_test.go (1865b)
+        ├───project
+        │	├───file.txt (19b)
+        │	└───gopher.png (70372b)
+        ├───static
+        │	├───a_lorem
+        │	│	├───dolor.txt (empty)
+        │	│	├───gopher.png (70372b)
+        │	│	└───ipsum
+        │	│		└───gopher.png (70372b)
+        │	├───css
+        │	│	└───body.css (28b)
+        │	├───empty.txt (empty)
+        │	├───html
+        │	│	└───index.html (57b)
+        │	├───js
+        │	│	└───site.js (10b)
+        │	└───z_lorem
+        │		├───dolor.txt (empty)
+        │		├───gopher.png (70372b)
+        │		└───ipsum
+        │	│		└───gopher.png (70372b)
+        ├───zline
+        │	├───empty.txt (empty)
+        │	└───lorem
+        │		├───dolor.txt (empty)
+        │		├───gopher.png (70372b)
+        │		└───ipsum
+        │	│		└───gopher.png (70372b)
+        └───zzfile.txt (empty)
+        
+        Expected:
+        ├───project
+        │	├───file.txt (19b)
+        │	└───gopher.png (70372b)
+        ├───static
+        │	├───a_lorem
+        │	│	├───dolor.txt (empty)
+        │	│	├───gopher.png (70372b)
+        │	│	└───ipsum
+        │	│		└───gopher.png (70372b)
+        │	├───css
+        │	│	└───body.css (28b)
+        │	├───empty.txt (empty)
+        │	├───html
+        │	│	└───index.html (57b)
+        │	├───js
+        │	│	└───site.js (10b)
+        │	└───z_lorem
+        │		├───dolor.txt (empty)
+        │		├───gopher.png (70372b)
+        │		└───ipsum
+        │			└───gopher.png (70372b)
+        ├───zline
+        │	├───empty.txt (empty)
+        │	└───lorem
+        │		├───dolor.txt (empty)
+        │		├───gopher.png (70372b)
+        │		└───ipsum
+        │			└───gopher.png (70372b)
+        └───zzfile.txt (empty)
+=== RUN   TestTreeDir
+--- PASS: TestTreeDir (0.00s)
+FAIL
+exit status 1
+FAIL	_/home/vlad/work/projects/gits/go-fun/Ex1	0.002s
